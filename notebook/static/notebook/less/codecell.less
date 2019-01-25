@@ -27,6 +27,7 @@ div.prompt_container {
     justify-content: space-between;
     align-items: flex-start;
     text-align: right;
+    min-height: 100%;
 }
 
 /* input_area and input_prompt must match in top border and margin for alignment */
@@ -39,24 +40,24 @@ div.run_this_cell {
   position: absolute;
   display: none;
   cursor: pointer;
-  color: #333;
-  background-color: #fffa;
+  color: #aaa;
+  background-color: #fffc;
   padding-top: 5px;
   padding-bottom: 5px;
-  left: 1.2ex;
+  left: -.6ex;
   padding-left: 0ex;
   padding-right: 1ex;
   width: 2ex;
 }
+div.selected div.input .run_this_cell {
+  display: flex;
+}
+div.prompt_container:hover .run_this_cell {
+  display: flex;
+}
 // set the prompt width
 div.prompt {
   min-width: 9ex;
-}
-div.selected div.input .run_this_cell {
-  display: block;
-}
-div.code_cell div.prompt_container:hover .run_this_cell {
-  display: block;
 }
 
 // The styles related to div.highlight are for nbconvert HTML output only. This works

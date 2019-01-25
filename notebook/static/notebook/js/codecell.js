@@ -163,13 +163,24 @@ define([
 
         var prompt_container = $('<div/>').addClass('prompt_container');
 
-        var run_this_cell = $('<div></div>').addClass('run_this_cell');
+        var this_cell = $('<div></div>').addClass('run_this_cell');
+        var insert_cell = $('<div></div>').append('<i class="fa-plus-square fa"></i>');
+        insert_cell.prop('title', 'Insert before this cell');
+        insert_cell.click(function (event) {
+            event.stopImmediatePropagation();
+            var index = Jupyter.notebook.find_cell_index(that);
+            var new_cell = Jupyter.notebook.insert_cell_above('code',index);
+            Jupyter.notebook.select(index);
+            Jupyter.notebook.edit_mode();
+        });
+        this_cell.append(insert_cell).append('&nbsp;&nbsp;');
+        var run_this_cell = $('<div></div>').append('<i class="fa-step-forward fa"></i>');
         run_this_cell.prop('title', 'Run this cell');
-        run_this_cell.append('<i class="fa-step-forward fa"></i>');
         run_this_cell.click(function (event) {
             event.stopImmediatePropagation();
             that.execute();
         });
+        this_cell.append(run_this_cell);
 
         var prompt = $('<div/>').addClass('prompt input_prompt');
         
@@ -192,7 +203,7 @@ define([
         this.code_mirror.on('keydown', $.proxy(this.handle_keyevent,this));
         $(this.code_mirror.getInputField()).attr("spellcheck", "false");
         inner_cell.append(input_area);
-        prompt_container.append(prompt).append(run_this_cell);
+        prompt_container.append(prompt).append(this_cell);
         input.append(prompt_container).append(inner_cell);
 
         var output = $('<div></div>');

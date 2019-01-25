@@ -76,6 +76,7 @@ define([
 
 
     OutputArea.prototype.style = function () {
+        var that=this;
         this.collapse_button.hide();
         if (!this.prompt_area) {
             this.prompt_overlay.hide();
@@ -88,6 +89,17 @@ define([
         this.collapse_button.attr('title', i18n.msg._('click to expand output'));
         this.collapse_button.text('. . .');
         
+        var prompt_container = $('<div><div/>').addClass('prompt_container');
+        var clear_this_cell_out = $('<div style="background-color:#fff0"></div>').addClass('run_this_cell');
+        clear_this_cell_out.prop('title', 'Clear output of this cell');
+        clear_this_cell_out.append('&nbsp;<i class="fa-trash fa"></i>');
+        clear_this_cell_out.click(function (event) {
+            event.stopImmediatePropagation();
+            that.clear_output();
+        });
+        prompt_container.append(clear_this_cell_out);
+
+        this.prompt_overlay.append(prompt_container);
         this.prompt_overlay.addClass('out_prompt_overlay prompt');
         this.prompt_overlay.attr('title', i18n.msg._('click to expand output; double click to hide output'));
         
