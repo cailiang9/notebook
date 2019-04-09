@@ -13,21 +13,28 @@ from contextlib import contextmanager
 pjoin = os.path.join
 
 
-def wait_for_selector(driver, selector, timeout=10, visible=False, single=False, wait_for_n=1):
+def wait_for_selector(driver, selector, timeout=10, visible=False, single=False, wait_for_n=1, obscures=False):
     if wait_for_n > 1:
         return _wait_for_multiple(
             driver, By.CSS_SELECTOR, selector, timeout, wait_for_n, visible)
-    return _wait_for(driver, By.CSS_SELECTOR, selector, timeout, visible, single)
+    return _wait_for(driver, By.CSS_SELECTOR, selector, timeout, visible, single, obscures)
 
 
-def wait_for_tag(driver, tag, timeout=10, visible=False, single=False, wait_for_n=1):
+def wait_for_tag(driver, tag, timeout=10, visible=False, single=False, wait_for_n=1, obscures=False):
     if wait_for_n > 1:
         return _wait_for_multiple(
             driver, By.TAG_NAME, tag, timeout, wait_for_n, visible)
-    return _wait_for(driver, By.TAG_NAME, tag, timeout, visible, single)
+    return _wait_for(driver, By.TAG_NAME, tag, timeout, visible, single, obscures)
 
 
-def _wait_for(driver, locator_type, locator, timeout=10, visible=False, single=False):
+def wait_for_xpath(driver, xpath, timeout=10, visible=False, single=False, wait_for_n=1, obscures=False):
+    if wait_for_n > 1:
+        return _wait_for_multiple(
+            driver, By.XPATH, xpath, timeout, wait_for_n, visible)
+    return _wait_for(driver, By.XPATH, xpath, timeout, visible, single, obscures)
+
+
+def _wait_for(driver, locator_type, locator, timeout=10, visible=False, single=False, obscures=False):
     """Waits `timeout` seconds for the specified condition to be met. Condition is
     met if any matching element is found. Returns located element(s) when found.
 
@@ -39,9 +46,12 @@ def _wait_for(driver, locator_type, locator, timeout=10, visible=False, single=F
         visible: if True, require that element is not only present, but visible
         single: if True, return a single element, otherwise return a list of matching
         elements
+        osbscures: if True, waits until the element becomes invisible
     """
     wait = WebDriverWait(driver, timeout)
-    if single:
+    if obscures:
+        conditional = EC.invisibility_of_element_located
+    elif single:
         if visible:
             conditional = EC.visibility_of_element_located
         else:
@@ -195,12 +205,18 @@ class Notebook:
         wait = WebDriverWait(self.browser, 10)
         element = wait.until(EC.staleness_of(cell))
 
+    def wait_for_element_availability(self, element):
+        _wait_for(self.browser, By.CLASS_NAME, element, visible=True)
+
     def get_cells_contents(self):
         JS = 'return Jupyter.notebook.get_cells().map(function(c) {return c.get_text();})'
         return self.browser.execute_script(JS)
 
     def get_cell_contents(self, index=0, selector='div .CodeMirror-code'):
         return self.cells[index].find_element_by_css_selector(selector).text
+
+    def get_cell_output(self, index=0, output='output_subarea'):
+        return self.cells[index].find_elements_by_class_name(output)
 
     def set_cell_metadata(self, index, key, value):
         JS = 'Jupyter.notebook.get_cell({}).metadata.{} = {}'.format(index, key, value)
@@ -223,7 +239,7 @@ class Notebook:
 
         # Select & delete anything already in the cell
         self.current_cell.send_keys(Keys.ENTER)
-        ctrl(self.browser, 'a')
+        cmdtrl(self.browser, 'a')
         self.current_cell.send_keys(Keys.DELETE)
 
         for line_no, line in enumerate(content.splitlines()):
@@ -283,13 +299,19 @@ class Notebook:
     def trigger_keydown(self, keys):
         trigger_keystrokes(self.body, keys)
 
+    def is_kernel_running(self):
+        return self.browser.execute_script("return Jupyter.notebook.kernel.is_connected()")
+
     @classmethod
     def new_notebook(cls, browser, kernel_name='kernel-python3'):
         with new_window(browser, selector=".cell"):
             select_kernel(browser, kernel_name=kernel_name)
-        return cls(browser)
+        wait = WebDriverWait(browser, 10)
+        nb = cls(browser)
+        wait.until(lambda driver: nb.is_kernel_running())
+        return nb
 
-    
+
 def select_kernel(browser, kernel_name='kernel-python3'):
     """Clicks the "new" button and selects a kernel from the options.
     """
@@ -299,6 +321,7 @@ def select_kernel(browser, kernel_name='kernel-python3'):
     kernel_selector = '#{} a'.format(kernel_name)
     kernel = wait_for_selector(browser, kernel_selector, single=True)
     kernel.click()
+
 
 @contextmanager
 def new_window(browser, selector=None):
@@ -324,9 +347,11 @@ def new_window(browser, selector=None):
     """
     initial_window_handles = browser.window_handles
     yield
-    new_window_handle = next(window for window in browser.window_handles 
-                             if window not in initial_window_handles)
-    browser.switch_to.window(new_window_handle)
+    new_window_handles = [window for window in browser.window_handles
+                          if window not in initial_window_handles]
+    if not new_window_handles:
+        raise Exception("No new windows opened during context")
+    browser.switch_to.window(new_window_handles[0])
     if selector is not None:
         wait_for_selector(browser, selector)
 
@@ -334,9 +359,9 @@ def shift(browser, k):
     """Send key combination Shift+(k)"""
     trigger_keystrokes(browser, "shift-%s"%k)
 
-def ctrl(browser, k):
-    """Send key combination Ctrl+(k)"""
-    trigger_keystrokes(browser, "control-%s"%k)
+def cmdtrl(browser, k):
+    """Send key combination Ctrl+(k) or Command+(k) for MacOS"""
+    trigger_keystrokes(browser, "command-%s"%k) if os.uname()[0] == "Darwin" else trigger_keystrokes(browser, "control-%s"%k)
 
 def trigger_keystrokes(browser, *keys):
     """ Send the keys in sequence to the browser.
