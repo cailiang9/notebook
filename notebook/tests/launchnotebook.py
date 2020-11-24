@@ -1,7 +1,5 @@
 """Base class for notebook tests."""
 
-from __future__ import print_function
-
 from binascii import hexlify
 from contextlib import contextmanager
 import errno
@@ -16,7 +14,6 @@ pjoin = os.path.join
 from unittest.mock import patch
 
 import requests
-import requests_unixsocket
 from tornado.ioloop import IOLoop
 import zmq
 
@@ -54,6 +51,9 @@ class NotebookTestBase(TestCase):
         for _ in range(int(MAX_WAITTIME/POLL_INTERVAL)):
             try:
                 cls.fetch_url(url)
+            except ModuleNotFoundError as error:
+                # Errors that should be immediately thrown back to caller
+                raise error
             except Exception as e:
                 if not cls.notebook_thread.is_alive():
                     raise RuntimeError("The notebook server failed to start") from e
@@ -231,6 +231,9 @@ class UNIXSocketNotebookTestBase(NotebookTestBase):
 
     @staticmethod
     def fetch_url(url):
+        # Lazily import so it is not required at the module level
+        if os.name != 'nt':
+            import requests_unixsocket
         with requests_unixsocket.monkeypatch():
             return requests.get(url)
 

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """Setup script for Jupyter Notebook"""
 
 #-----------------------------------------------------------------------------
@@ -116,11 +115,11 @@ for more information.
         'prometheus_client'
     ],
     extras_require = {
-        'test': ['nose', 'coverage', 'requests', 'nose_warnings_filters',
-                 'nbval', 'nose-exclude', 'selenium', 'pytest', 'pytest-cov',
-                 'requests-unixsocket'],
-        'docs': ['sphinx', 'nbsphinx', 'sphinxcontrib_github_alt'],
-        'test:sys_platform == "win32"': ['nose-exclude'],
+        'test': ['pytest', 'coverage', 'requests',
+                 'nbval', 'selenium', 'pytest', 'pytest-cov'],
+        'docs': ['sphinx', 'nbsphinx', 'sphinxcontrib_github_alt', 'sphinx_rtd_theme'],
+        'test:sys_platform != "win32"': ['requests-unixsocket'],
+        'json-logging': ['json-logging']
     },
     python_requires = '>=3.5',
     entry_points = {

@@ -21,6 +21,76 @@ We strongly recommend that you upgrade pip to version 9+ of pip before upgrading
     Use ``pip install pip --upgrade`` to upgrade pip. Check pip version with
     ``pip --version``.
 
+
+.. _release-6.1.5:
+
+6.1.5
+-----
+
+6.1.5 is a security release, fixing one vulnerability:
+
+- Fix open redirect vulnerability GHSA-c7vm-f5p4-8fqh (CVE to be assigned)
+
+.. _release-6.1.4:
+
+6.1.4
+-----
+
+- Fix broken links to jupyter documentation (:ghpull:`5686`)
+- Add additional entries to troubleshooting section (:ghpull:`5695`)
+- Revert change in page alignment (:ghpull:`5703`)
+- Bug fix: remove double encoding in download files (:ghpull:`5720`)
+- Fix typo for Check in zh_CN (:ghpull:`5730`)
+- Require a file name in the "Save As" dialog (:ghpull:`5733`)
+
+Thank you to all the contributors:
+
+- bdbai
+- Jaipreet Singh
+- Kevin Bates
+- Pavel Panchekha
+- Zach Sailer
+
+
+.. _release-6.1.3:
+
+6.1.3
+-----
+
+- Title new buttons with label if action undefined (:ghpull:`5676`)
+
+Thank you to all the contributors:
+
+- Kyle Kelley
+
+
+.. _release-6.1.2:
+
+6.1.2
+-----
+
+- Fix russian message format for delete/duplicate actions (:ghpull:`5662`)
+- Remove unnecessary import of bind_unix_socket (:ghpull:`5666`)
+- Tooltip style scope fix (:ghpull:`5672`)
+
+Thank you to all the contributors:
+
+- Dmitry Akatov
+- Kevin Bates
+- Magda Stenius
+
+.. _release-6.1.1:
+
+6.1.1
+-----
+
+- Prevent inclusion of requests_unixsocket on Windows (:ghpull:`5650`)
+
+Thank you to all the contributors:
+
+- Kevin Bates
+
+
 .. _release-6.1.0:
 
 6.1.0

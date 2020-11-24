@@ -1,16 +1,14 @@
-# coding: utf-8
 """A tornado based Jupyter notebook server."""
 
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
-
-from __future__ import absolute_import, print_function
 
 import notebook
 import asyncio
 import binascii
 import datetime
 import errno
+import functools
 import gettext
 import hashlib
 import hmac
@@ -190,7 +188,7 @@ class NotebookWebApplication(web.Application):
         if settings['autoreload']:
             log.info('Autoreload enabled: the webapp will restart when any Python src file changes.')
 
-        super(NotebookWebApplication, self).__init__(handlers, **settings)
+        super().__init__(handlers, **settings)
 
     def init_settings(self, jupyter_app, kernel_manager, contents_manager,
                       session_manager, kernel_spec_manager,
@@ -250,9 +248,12 @@ class NotebookWebApplication(web.Application):
             # collapse $HOME to ~
             root_dir = '~' + root_dir[len(home):]
 
+        # Use the NotebookApp logger and its formatting for tornado request logging.
+        log_function = functools.partial(
+            log_request, log=log, log_json=jupyter_app.log_json)
         settings = dict(
             # basics
-            log_function=log_request,
+            log_function=log_function,
             base_url=base_url,
             default_url=default_url,
             template_path=template_path,
@@ -282,6 +283,7 @@ class NotebookWebApplication(web.Application):
             disable_check_xsrf=jupyter_app.disable_check_xsrf,
             allow_remote_access=jupyter_app.allow_remote_access,
             local_hostnames=jupyter_app.local_hostnames,
+            authenticate_prometheus=jupyter_app.authenticate_prometheus,
 
             # managers
             kernel_manager=kernel_manager,
@@ -443,7 +445,7 @@ def shutdown_server(server_info, timeout=5, log=None):
     """
     from tornado import gen
     from tornado.httpclient import AsyncHTTPClient, HTTPClient, HTTPRequest
-    from tornado.netutil import bind_unix_socket, Resolver
+    from tornado.netutil import Resolver
     url = server_info['url']
     pid = server_info['pid']
     resolver = None
@@ -511,7 +513,7 @@ class NbserverStopApp(JupyterApp):
         help="UNIX socket of the server to be killed.")
 
     def parse_command_line(self, argv=None):
-        super(NbserverStopApp, self).parse_command_line(argv)
+        super().parse_command_line(argv)
         if self.extra_args:
             try:
                 self.port = int(self.extra_args[0])
@@ -524,7 +526,15 @@ class NbserverStopApp(JupyterApp):
 
     def _shutdown_or_exit(self, target_endpoint, server):
         print("Shutting down server on %s..." % target_endpoint)
-        if not self.shutdown_server(server):
+        server_stopped = self.shutdown_server(server)
+        if not server_stopped and sys.platform.startswith('win'):
+            # the pid check on Windows appears to be unreliable, so fetch another
+            # list of servers and ensure our server is not in the list before
+            # sending the wrong impression.
+            servers = list(list_running_servers(self.runtime_dir))
+            if server not in servers:
+                server_stopped = True
+        if not server_stopped:
             sys.exit("Could not stop server on %s" % target_endpoint)
 
     @staticmethod
@@ -695,6 +705,43 @@ class NotebookApp(JupyterApp):
     )
 
     _log_formatter_cls = LogFormatter
+
+    _json_logging_import_error_logged = False
+
+    log_json = Bool(False, config=True,
+        help=_('Set to True to enable JSON formatted logs. '
+               'Run "pip install notebook[json-logging]" to install the '
+               'required dependent packages. Can also be set using the '
+               'environment variable JUPYTER_ENABLE_JSON_LOGGING=true.')
+    )
+
+    @default('log_json')
+    def _default_log_json(self):
+        """Get the log_json value from the environment."""
+        return os.getenv('JUPYTER_ENABLE_JSON_LOGGING', 'false').lower() == 'true'
+
+    @validate('log_json')
+    def _validate_log_json(self, proposal):
+        # If log_json=True, see if the json_logging package can be imported and
+        # override _log_formatter_cls if so.
+        value = proposal['value']
+        if value:
+            try:
+                import json_logging
+                self.log.debug('initializing json logging')
+                json_logging.init_non_web(enable_json=True)
+                self._log_formatter_cls = json_logging.JSONLogFormatter
+            except ImportError:
+                # If configured for json logs and we can't do it, log a hint.
+                # Only log the error once though.
+                if not self._json_logging_import_error_logged:
+                    self.log.warning(
+                        'Unable to use json logging due to missing packages. '
+                        'Run "pip install notebook[json-logging]" to fix.'
+                    )
+                    self._json_logging_import_error_logged = True
+                value = False
+        return value
 
     @default('log_level')
     def _default_log_level(self):
@@ -1505,6 +1552,13 @@ class NotebookApp(JupyterApp):
          is not available.
          """))
 
+    authenticate_prometheus = Bool(
+        True,
+        help=""""
+        Require authentication to access prometheus metrics.
+        """
+    ).tag(config=True)
+
     # Since use of terminals is also a function of whether the terminado package is
     # available, this variable holds the "final indication" of whether terminal functionality
     # should be considered (particularly during shutdown/cleanup).  It is enabled only
@@ -1515,7 +1569,7 @@ class NotebookApp(JupyterApp):
     terminals_available = False
 
     def parse_command_line(self, argv=None):
-        super(NotebookApp, self).parse_command_line(argv)
+        super().parse_command_line(argv)
 
         if self.extra_args:
             arg0 = self.extra_args[0]
@@ -1954,6 +2008,8 @@ class NotebookApp(JupyterApp):
         # ensure css, js are correct, which are required for pages to function
         mimetypes.add_type('text/css', '.css')
         mimetypes.add_type('application/javascript', '.js')
+        # for python <3.8
+        mimetypes.add_type('application/wasm', '.wasm')
 
     def shutdown_no_activity(self):
         """Shutdown server on timeout when there are no kernels or terminals."""
@@ -2018,7 +2074,7 @@ class NotebookApp(JupyterApp):
     def initialize(self, argv=None):
         self._init_asyncio_patch()
 
-        super(NotebookApp, self).initialize(argv)
+        super().initialize(argv)
         self.init_logging()
         if self._dispatching:
             return
@@ -2184,7 +2240,7 @@ class NotebookApp(JupyterApp):
         This method takes no arguments so all configuration and initialization
         must be done prior to calling this method."""
 
-        super(NotebookApp, self).start()
+        super().start()
 
         if not self.allow_root:
             # check if we are running as root, and abort if it's not allowed
