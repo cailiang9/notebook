@@ -98,7 +98,7 @@ for more information.
     zip_safe = False,
     install_requires = [
         'jinja2',
-        'tornado>=5.0',
+        'tornado>=6.1',
         # pyzmq>=17 is not technically necessary,
         # but hopefully avoids incompatibilities with Tornado 5. April 2018
         'pyzmq>=17',
@@ -110,7 +110,7 @@ for more information.
         'nbformat',
         'nbconvert',
         'ipykernel', # bless IPython kernel for now
-        'Send2Trash',
+        'Send2Trash>=1.5.0',
         'terminado>=0.8.3',
         'prometheus_client'
     ],
