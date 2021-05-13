@@ -51,3 +51,8 @@ geckodriver.log
 *.code-workspace
 .history
 .vscode
+
+# copied changelog
+docs/source/changelog.md
+
+.jupyter_releaser_checkout
